@@ -66,6 +66,23 @@ cubitec.generator = function (parameters) {
 		}
 	};
 
+	var scale = {
+		x: { x: 144, y: 72 },
+		y: { x: -144, y: 72 }
+	};
+
+	utils.grid = {
+		map: function (coords) {
+			var svgCoords = {
+				// x: influence of Xx + influence of Yx
+				// y: influence of Xy + influence of Yy
+				x: coords.x * scale.x.x + coords.y * scale.y.x,
+				y: coords.x * scale.x.y + coords.y * scale.y.y
+			};
+			return svgCoords;
+		}
+	};
+
 	var canvas = null;
 
 	var points = {
@@ -111,9 +128,10 @@ cubitec.generator = function (parameters) {
 				polygons = [polygons];
 			}
 			polygons.forEach(function (polygon) {
+				var svgCoords = utils.grid.map(polygon.coords);
 				canvas.polygon(polygon.points)
 					.addClass(polygon.classes.join(" "))
-					.move(polygon.svgCoords.x, polygon.svgCoords.y);
+					.move(svgCoords.x, svgCoords.y);
 			});
 		}
 	};
@@ -128,11 +146,13 @@ cubitec.generator = function (parameters) {
 			var color = utils.block.color(value);
 			var position = utils.block.position(value);
 			var direction = utils.block.direction(value);
+			var direction = "H";
 			return utils.svg.polygon(color, position, direction);
 		});
 	};
 
 	this.draw = utils.svg.draw;
+	window.map = utils.grid.map;
 	this.getCanvas = function () { return canvas; };
 
 	return this;

@@ -16,22 +16,22 @@
 	
 
 	<script type="text/javascript">
-	
-		var setRandomPosition = function (polygon) {
-			var getRandom = function () {
-				var min = 0, max = 1200 - 288;
-				return Math.floor(Math.random() * (max - min + 1)) + min;
-			};
-			polygon.svgCoords = { x: getRandom(), y: getRandom() };
-			return polygon;
-		};
+
+
+		// 144 x 261
+		// 288 x 144
 
 		window.addEventListener("DOMContentLoaded", function () {
 
 			window.generator = new cubitec.generator({ seed: "Michiel Steegmans", viewBox: { x: 1200, y: 1200 } });
-			var blocks = generator.blocks().map(setRandomPosition);
+			var blocks = generator.blocks().map(function (block, index) {
+				var x = Math.floor(index / 6);
+				var y = (index % 6) - 3;
+				block.coords = { x: x, y: y };
+				return block;
+			});
 			blocks.forEach(function (block, index) {
-				setTimeout(generator.draw, 1000 * index, block);
+				setTimeout(generator.draw, 100 * index, block);
 			});
 		})
 	</script>
