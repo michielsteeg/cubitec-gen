@@ -26,17 +26,10 @@
 			return polygon;
 		};
 
-		var fillColor = function (polygon) {
-			var fillColors = { "B": "#2f67ff", "G": "#6bdbe7" };
-			polygon.fill = fillColors[polygon.color];
-			return polygon;
-		};
-
-
 		window.addEventListener("DOMContentLoaded", function () {
 
-			var generator = new cubitec.generator({ seed: "Michiel Steegmans", viewBox: { x: 1200, y: 1200 } });
-			var blocks = generator.blocks().map(setRandomPosition).map(fillColor);
+			window.generator = new cubitec.generator({ seed: "Michiel Steegmans", viewBox: { x: 1200, y: 1200 } });
+			var blocks = generator.blocks().map(setRandomPosition);
 			blocks.forEach(function (block, index) {
 				setTimeout(generator.draw, 1000 * index, block);
 			});

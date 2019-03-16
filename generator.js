@@ -66,7 +66,7 @@ cubitec.generator = function (parameters) {
 		}
 	};
 
-	var draw = null;
+	var canvas = null;
 
 	var points = {
 		horizontal: "144 0 0 72 144 144 288 72 144 0",
@@ -76,9 +76,11 @@ cubitec.generator = function (parameters) {
 
 	utils.svg = {
 		polygon: function (color, position, direction) {
+			var classes = { "B": "blue", "G": "green" };
 			return {
 				points: utils.svg.points(position, direction),
-				color: color
+				color: color,
+				classes: ["polygon", classes[color]]
 			};
 		},
 		points: function (position, direction) {
@@ -95,15 +97,23 @@ cubitec.generator = function (parameters) {
 			return points[shape];
 		},
 		draw: function (polygons) {
-			if ( !draw ) {
-				draw = SVG().size(parameters.viewBox.x, parameters.viewBox.y);
-				draw.addTo(parameters.container);
+			if ( !canvas ) {
+				canvas = SVG().size(parameters.viewBox.x, parameters.viewBox.y);
+				canvas.addTo(parameters.container);
+				canvas.style()
+					.rule(".wrapper", { isolation: "isolate" })
+					.rule(".polygon", { "mix-blend-mode": "multiply", opacity: 0.25 })
+					.rule(".base", { opacity: 1 })
+					.rule(".blue", { fill: "#2f67ff" })
+					.rule(".green", { fill: "#6bdbe7" })
 			}
 			if ( !Array.isArray(polygons) ) {
 				polygons = [polygons];
 			}
 			polygons.forEach(function (polygon) {
-				draw.polygon(polygon.points).fill(polygon.fill).move(polygon.svgCoords.x, polygon.svgCoords.y);
+				canvas.polygon(polygon.points)
+					.addClass(polygon.classes.join(" "))
+					.move(polygon.svgCoords.x, polygon.svgCoords.y);
 			});
 		}
 	};
@@ -123,6 +133,7 @@ cubitec.generator = function (parameters) {
 	};
 
 	this.draw = utils.svg.draw;
+	this.getCanvas = function () { return canvas; };
 
 	return this;
 };
