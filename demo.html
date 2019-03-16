@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>Cubitec - Logo Generator - DEMO</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<script src="generator.js"></script>
+	<script src="svg.js"></script>
+	<script src="md5.js"></script>
+</head>
+<body>
+
+
+	<div id="generator"></div>
+	
+
+	<script type="text/javascript">
+	
+		var setRandomPosition = function (polygon) {
+			var getRandom = function () {
+				var min = 0, max = 1200 - 288;
+				return Math.floor(Math.random() * (max - min + 1)) + min;
+			};
+			polygon.svgCoords = { x: getRandom(), y: getRandom() };
+			return polygon;
+		};
+
+		var fillColor = function (polygon) {
+			var fillColors = { "B": "#2f67ff", "G": "#6bdbe7" };
+			polygon.fill = fillColors[polygon.color];
+			return polygon;
+		};
+
+
+		window.addEventListener("DOMContentLoaded", function () {
+
+			var generator = new cubitec.generator({ seed: "Michiel Steegmans", viewBox: { x: 1200, y: 1200 } });
+			var blocks = generator.blocks().map(setRandomPosition).map(fillColor);
+			blocks.forEach(function (block, index) {
+				setTimeout(generator.draw, 1000 * index, block);
+			});
+		})
+	</script>
+</body>
+</html>
