@@ -23,15 +23,15 @@
 
 		window.addEventListener("DOMContentLoaded", function () {
 
-			window.generator = new cubitec.generator({ seed: "Michiel Steegmans", viewBox: { x: 1200, y: 1200 } });
-			var blocks = generator.blocks().map(function (block, index) {
-				var x = Math.floor(index / 6);
-				var y = (index % 6) - 3;
-				block.coords = { x: x, y: y };
-				return block;
+			window.generator = new cubitec.generator({ seed: "Michiel Steegmans" });
+			var data = ["NHB", "NUG", "NDG", "EUG", "EDG", "SUG", "SDG", "WUG", "WDG"];
+			var blocks = data.map(function (item) {
+				var polygon = generator.polygon(item[2], item[0], item[1]);
+				polygon.coords = { x: 6, y: 0, z: 0 };
+				return polygon;
 			});
 			blocks.forEach(function (block, index) {
-				setTimeout(generator.draw, 100 * index, block);
+				setTimeout(generator.draw, 300 * index, block);
 			});
 		})
 	</script>

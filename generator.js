@@ -4,11 +4,13 @@ if ( !cubitec ) {
 
 cubitec.generator = function (parameters) {
 
+
 	// DEFAULTS 
+
 	var defaults = {
 		container: "#generator",
 		seed: "Goede ideeën verdienen de beste technologie",
-		viewBox: { x: 800, y: 600 }
+		viewBox: { x: 2016, y: 1512 }
 	};
 
 	var setDefaults = function (parameters) {
@@ -68,18 +70,61 @@ cubitec.generator = function (parameters) {
 
 	var scale = {
 		x: { x: 144, y: 72 },
-		y: { x: -144, y: 72 }
+		y: { x: -144, y: 72 },
+		z: { y: -45 }
+	};
+
+	var translations = {
+		"N": {
+			"U": { x: scale.x.x, y: scale.x.y * -2 },
+			"D": { x: scale.x.x, y: 0 }
+		},
+		"E": {
+			"U": { x: scale.x.x, y: scale.x.y * -1 },
+			"D": { x: scale.x.x, y: scale.x.y }
+		},
+		"S": {
+			"U": { x: 0, y: scale.x.y * -1 },
+			"D": { x: 0, y: scale.x.y }
+		},
+		"W": {
+			"U": { x: 0, y: scale.x.y * -2 },
+			"D": { x: 0, y: 0 }
+		}
 	};
 
 	utils.grid = {
 		map: function (coords) {
 			var svgCoords = {
 				// x: influence of Xx + influence of Yx
-				// y: influence of Xy + influence of Yy
+				// y: influence of Xy + influence of Yy + influence of Zy
 				x: coords.x * scale.x.x + coords.y * scale.y.x,
-				y: coords.x * scale.x.y + coords.y * scale.y.y
+				y: coords.x * scale.x.y + coords.y * scale.y.y + coords.z * scale.z.y
 			};
 			return svgCoords;
+		},
+		translate: function (svgCoords, position, direction) {
+			if ( direction == "H" ) {
+				return svgCoords;
+			}
+			var translated = {
+				x: svgCoords.x + translations[position][direction].x,
+				y: svgCoords.y + translations[position][direction].y
+			};
+			if ( direction == "U" ) {
+				translated.y = translated.y + scale.z.y;
+			}
+			return translated;
+		},
+		size: function () {
+			var availableBlocks = Math.min(
+				Math.floor((parameters.viewBox.x - scale.x.x) / scale.x.x),
+				Math.floor((parameters.viewBox.y - scale.x.y) / scale.x.y)
+			);
+			return {
+				x: availableBlocks,
+				y: availableBlocks
+			};
 		}
 	};
 
@@ -95,9 +140,11 @@ cubitec.generator = function (parameters) {
 		polygon: function (color, position, direction) {
 			var classes = { "B": "blue", "G": "green" };
 			return {
-				points: utils.svg.points(position, direction),
 				color: color,
-				classes: ["polygon", classes[color]]
+				classes: ["polygon", classes[color]],
+				direction: direction,
+				points: utils.svg.points(position, direction),
+				position: position
 			};
 		},
 		points: function (position, direction) {
@@ -115,7 +162,8 @@ cubitec.generator = function (parameters) {
 		},
 		draw: function (polygons) {
 			if ( !canvas ) {
-				canvas = SVG().size(parameters.viewBox.x, parameters.viewBox.y);
+				canvas = SVG();
+				canvas.viewbox({ x: 0, y: 0, width: parameters.viewBox.x, height: parameters.viewBox.y });
 				canvas.addTo(parameters.container);
 				canvas.style()
 					.rule(".wrapper", { isolation: "isolate" })
@@ -129,6 +177,7 @@ cubitec.generator = function (parameters) {
 			}
 			polygons.forEach(function (polygon) {
 				var svgCoords = utils.grid.map(polygon.coords);
+				svgCoords = utils.grid.translate(svgCoords, polygon.position, polygon.direction);
 				canvas.polygon(polygon.points)
 					.addClass(polygon.classes.join(" "))
 					.move(svgCoords.x, svgCoords.y);
@@ -146,14 +195,18 @@ cubitec.generator = function (parameters) {
 			var color = utils.block.color(value);
 			var position = utils.block.position(value);
 			var direction = utils.block.direction(value);
-			var direction = "H";
 			return utils.svg.polygon(color, position, direction);
 		});
 	};
 
+	this.drawLogo = function () {
+		var size = utils.grid.size();
+		console.log("size is", size);
+		// var blocks = [{ color: "B", direction: "H",  }]
+	};
+
 	this.draw = utils.svg.draw;
-	window.map = utils.grid.map;
-	this.getCanvas = function () { return canvas; };
+	this.polygon = utils.svg.polygon;
 
 	return this;
 };
