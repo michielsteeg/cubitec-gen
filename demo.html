@@ -8,32 +8,60 @@
 	<script src="generator.js"></script>
 	<script src="svg.js"></script>
 	<script src="md5.js"></script>
+	<script src="seedrandom.js"></script>
+	<style>
+		.form {
+			background-color: #f8f6f4;
+			padding: 2rem;
+			position: fixed;
+			bottom: 0;
+			text-align: center;
+			width: 100%;
+		}
+		.form input {
+			padding: 0.5rem 1rem;
+		}
+		.form button {
+			background-color: #2f67ff;
+			border: none;
+			border-radius: 5px;
+			color: #fff;
+			font-size: 0.8rem;
+			height: 2rem;
+			line-height: 2rem;
+			padding: 0 2rem;
+		}
+	</style>
 </head>
 <body>
 
 
 	<div id="generator"></div>
+
+	<div class="form">
+		<input type="text" id="input"/>
+		<button onclick="generate()">Generate!</button>
+	</div>
 	
 
 	<script type="text/javascript">
 
-
-		// 144 x 261
-		// 288 x 144
-
 		window.addEventListener("DOMContentLoaded", function () {
 
-			window.generator = new cubitec.generator({ seed: "Michiel Steegmans" });
-			var data = ["NHB", "NUG", "NDG", "EUG", "EDG", "SUG", "SDG", "WUG", "WDG"];
-			var blocks = data.map(function (item) {
-				var polygon = generator.polygon(item[2], item[0], item[1]);
-				polygon.coords = { x: 6, y: 0, z: 0 };
-				return polygon;
-			});
-			blocks.forEach(function (block, index) {
-				setTimeout(generator.draw, 300 * index, block);
-			});
-		})
+			window.generator = new cubitec.generator({ seed: "Michiel Steegmans Cubitec" });
+			generator.drawBase();
+			generator.generate(true);
+		});
+
+		var generate = function () {
+			var input = document.getElementById("input").value;
+			console.log("generating input: ", input);
+			generator.seed(input);
+			generator.clear();
+			var branches = generator.generate(true);
+			console.log("branches are", branches);
+		};
+
 	</script>
 </body>
 </html>

@@ -10,7 +10,7 @@ cubitec.generator = function (parameters) {
 	var defaults = {
 		container: "#generator",
 		seed: "Goede ideeën verdienen de beste technologie",
-		viewBox: { x: 2016, y: 1512 }
+		viewBox: { x: 3024, y: 1512 }
 	};
 
 	var setDefaults = function (parameters) {
@@ -41,6 +41,19 @@ cubitec.generator = function (parameters) {
 			return hash.split("").reduce(function (prev, curr) {
 				return prev + (hexadecimals.indexOf(curr.toUpperCase()) + 1);
 			}, 0);
+		},
+		average: function (hash) {
+			return utils.hash.value(hash) / hash.length;
+		},
+		random: function (input) {
+			var prng = new Math.seedrandom(md5(input));
+			return prng();
+		},
+		randomRange: function (input, min, max) {
+			min = Math.ceil(min);
+			max = Math.floor(max);
+			var random = utils.hash.random(input);
+			return Math.floor(random * (max - min)) + min;
 		}
 	};
 
@@ -48,20 +61,24 @@ cubitec.generator = function (parameters) {
 		color: function (hashValue) {
 			return colors[hashValue % 2];
 		},
-		position: function (hashValue, previousIsVertical) {
+		position: function (hashValue, previous) {
 			var position = positions[hashValue - 1];
-			if ( !previousIsVertical ) {
+			if ( !previous || previous.direction == "H" ) {
 				return position;
 			}
-			if ( ["N","E"].indexOf(position) >= 0 ) {
-				return "N";
-			}
-			else if ( ["S","W"].indexOf(position) >= 0 ) {
-				return "S";
+			else {
+				if ( ["N","S"].indexOf(previous.position) >= 0 ) {
+					var map = { "N":"N", "S":"S", "E":"N", "W":"S" };
+					return map[position];
+				}
+				else if (["E", "W"].indexOf(previous.position) >= 0) {
+					var map = { "E":"E", "W":"W", "N":"E", "S":"W" };
+					return map[position];
+				}
 			}
 		},
-		direction: function (hashValue, isVertical) {
-			if ( isVertical ) {
+		direction: function (hashValue, previous) {
+			if ( previous && previous.direction != "H" ) {
 				return "H";
 			}
 			return directions[hashValue - 1];
@@ -117,14 +134,48 @@ cubitec.generator = function (parameters) {
 			return translated;
 		},
 		size: function () {
-			var availableBlocks = Math.min(
+			var numBlocks = Math.min(
 				Math.floor((parameters.viewBox.x - scale.x.x) / scale.x.x),
 				Math.floor((parameters.viewBox.y - scale.x.y) / scale.x.y)
 			);
 			return {
-				x: availableBlocks,
-				y: availableBlocks
+				x: numBlocks,
+				y: numBlocks
 			};
+		},
+		move: function (coords, polygon, previous) {
+			var movedCoords = JSON.parse(JSON.stringify(coords));
+			if ( polygon.direction == "H" ) {
+				switch (polygon.position) {
+					case "N":
+						movedCoords.y--;
+						break;
+					case "E":
+						movedCoords.x++;
+						break;
+					case "S":
+						movedCoords.y++;
+						break;
+					case "W":
+						movedCoords.x--;
+						break;
+				}
+			}
+			if ( previous && previous.direction != "H" ) {
+				switch (previous.direction) {
+					case "U":
+						movedCoords.x--;
+						movedCoords.y--;
+						movedCoords.z++;
+						break;
+					case "D":
+						movedCoords.x++;
+						movedCoords.y++;
+						movedCoords.z--;
+						break;
+				}
+			}
+			return movedCoords;
 		}
 	};
 
@@ -137,11 +188,12 @@ cubitec.generator = function (parameters) {
 	};
 
 	utils.svg = {
-		polygon: function (color, position, direction) {
+		polygon: function (color, position, direction, classList) {
+			classList = Array.isArray(classList) ? classList : [];
 			var classes = { "B": "blue", "G": "green" };
 			return {
 				color: color,
-				classes: ["polygon", classes[color]],
+				classes: ["polygon", classes[color]].concat(classList),
 				direction: direction,
 				points: utils.svg.points(position, direction),
 				position: position
@@ -186,24 +238,136 @@ cubitec.generator = function (parameters) {
 	};
 
 
-	var hash = utils.hash.create(parameters.seed);
+	var polygons = {};
 
-	// Let's create some blocks
-	this.blocks = function () {
-		return hash.split("").map(function (hashPart) {
-			var value = utils.hash.value(hashPart);
-			var color = utils.block.color(value);
-			var position = utils.block.position(value);
-			var direction = utils.block.direction(value);
-			return utils.svg.polygon(color, position, direction);
-		});
+	utils.foobar = {
+		start: function () {
+			// Definition based on the geometry of the base
+			var definitions = [{
+				coords: polygons.base[0].coords,
+				options: ["EH", "ED", "SH", "SD", "WH", "WD"]
+			}, {
+				coords: polygons.base[2].coords,
+				options: ["NH", "NU", "SH", "SU", "WH", "WU"]
+			}];
+			// Map for ease of use
+			var output = [];
+			definitions.forEach(function (definition) {
+				definition.options.forEach(function (option) {
+					output.push({
+						coords: definition.coords,
+						position: option[0],
+						direction: option[1]
+					});
+				});
+			});
+			return output;
+		},
+		branch: {
+			amount: function (hashValue) {
+				return 4;
+			},
+			length: function (hashValue) {
+				var nums = [1, 2];
+				return nums[hashValue % 2];
+			},
+			start: function (hashValue) {
+				var options = utils.foobar.start();
+				var index = utils.hash.randomRange(hashValue.toString(), 0, options.length);
+				return options[index];
+			},
+			hash: function (branch) {
+				return hash.slice(branch.number * 4, branch.number * 4 + 4); // hash length 4 is used to generate branch's polygons (e.g. 'd4ab')
+			},
+			list: function (hash) {
+				var amount = utils.foobar.branch.amount(utils.hash.value(hash[0]));
+				polygons.branches = [];
+				for ( var i = 0; i < amount; i++ ) {
+					var part = hash.slice(i * 3, i * 3 + 3); // hash length 3 is used to generate branch properties (e.g. '6fe')
+					var values = part.split("").map(utils.hash.value);
+					polygons.branches.push({
+						number: i,
+						length: utils.foobar.branch.length(values[0]),
+						start: utils.foobar.branch.start(values[1]),
+						polygons: []
+					});
+				}
+				return polygons.branches;
+			},
+			polygons: function (branch) {
+				if ( Array.isArray(branch) ) {
+					return branch.map(utils.foobar.branch.polygons);
+				}
+				var hash = utils.foobar.branch.hash(branch); // currently length 4
+				var coords = branch.start.coords;
+				for ( var i = 0; i < branch.length; i++ ) {
+					var previous = null;
+					if ( i > 0 ) {
+						previous = branch.polygons[i - 1]
+					}
+					var value = utils.hash.value(hash[i]);
+					var color = utils.block.color(value);
+					var position = utils.block.position(value, previous);
+					var direction = utils.block.direction(value, previous);
+					if ( i == 0 ) {
+						position = branch.start.position;
+						direction = branch.start.direction;
+					}
+
+					var polygon = utils.svg.polygon(color, position, direction);
+					coords = utils.grid.move(coords, polygon, previous);
+					polygon.coords = coords;
+					branch.polygons.push(polygon);
+				}
+			}
+		}
 	};
 
-	this.drawLogo = function () {
+	this.drawBase = function () {
 		var size = utils.grid.size();
-		console.log("size is", size);
-		// var blocks = [{ color: "B", direction: "H",  }]
+		var center = { x: Math.floor(size.x / 2), y: 0, z: 0 };
+		var top = { x: center.x - 1, y: center.y - 1, z: 1 };
+		var blocks = ["BSH", "GSU", "BSH"];
+		polygons.base = blocks.map(function (block, index) {
+			var polygon = utils.svg.polygon(block[0], block[1], block[2], ["base"]);
+			polygon.coords = index == 2 ? top : center;
+			return polygon;
+		});
+		utils.svg.draw(polygons.base);
 	};
+
+	this.generate = function (draw) {
+		var hashValue = utils.hash.value(hash);
+		var branches = utils.foobar.branch.list(hash);
+		utils.foobar.branch.polygons(branches);
+		if ( draw ) {
+			// timeout drawing here
+			var draw = function (branch) {
+				branch.polygons.forEach(function (polygon, index) {
+					var timeout = index * 500;
+					setTimeout(utils.svg.draw, timeout, polygon);
+				});
+			};
+			polygons.branches.forEach(function (branch) {
+				var timeout = branch.number * 1000;
+				setTimeout(draw, timeout, branch);
+			});
+		}
+		return polygons.branches;
+	};
+
+	this.seed = function (seed) {
+		parameters.seed = seed;
+		hash = utils.hash.create(parameters.seed);
+	};
+
+	this.clear = function () {
+		polygons.branches.splice(0, polygons.branches.length);
+		var list = document.querySelectorAll(".polygon:not(.base)");
+		list.forEach(function (polygon) { polygon.remove(); });
+	};
+
+	var hash = utils.hash.create(parameters.seed);
 
 	this.draw = utils.svg.draw;
 	this.polygon = utils.svg.polygon;
