@@ -10,18 +10,23 @@ cubitec.generator = function (parameters) {
 	var defaults = {
 		container: "#generator",
 		seed: "Goede ideeën verdienen de beste technologie",
-		viewBox: { x: 3024, y: 1512 }
+		viewBox: { x: 3024, y: 1512 },
+		branch: { amount: 4, length: [1, 2] },
+		fixedColors: true
 	};
 
-	var setDefaults = function (parameters) {
-		for ( var key in defaults ) {
+	var setDefaults = function (parameters, defaultObj) {
+		for ( var key in defaultObj ) {
 			if ( !parameters.hasOwnProperty(key) ) {
-				parameters[key] = defaults[key];
+				parameters[key] = defaultObj[key];
+			}
+			else if ( defaultObj[key] === Object(defaultObj[key]) ) {
+				setDefaults(parameters[key], defaultObj[key]);
 			}
 		}
 	};
 
-	setDefaults(parameters);
+	setDefaults(parameters, defaults);
 
 
 	// UTILS 
@@ -175,6 +180,30 @@ cubitec.generator = function (parameters) {
 						break;
 				}
 			}
+			// If the polygon's direction is horizontal (H) and its position is opposite the previous' position (e.g. E - W)
+			// Then we've moved polygon too far apart from its previous partner
+			// So we move them back together
+			var isOpposite = function (position, oppositePosition) {
+				var opposites = { "N": "S", "E": "W", "S": "N", "W": "E" };
+				return opposites[position] == oppositePosition;
+			};
+			if ( polygon.direction == "H" && previous && isOpposite(polygon.position, previous.position) ) {
+				console.log("we have opposites", polygon, previous);
+				switch (polygon.position) {
+					case "N":
+						movedCoords.y++;
+						break;
+					case "E":
+						movedCoords.x--;
+						break;
+					case "S":
+						movedCoords.y--;
+						break;
+					case "W":
+						movedCoords.x++;
+						break;
+				}
+			}
 			return movedCoords;
 		}
 	};
@@ -237,6 +266,57 @@ cubitec.generator = function (parameters) {
 		}
 	};
 
+	utils.allowed = {
+		utils: {
+			opposite: function (position) {
+				var opposites = { "N": "S", "E": "W", "S": "N", "W": "E" };
+				return opposites[position];
+			}
+		},
+		polygon: function (polygon, branch) {
+			var isOpposite = function (polygon, oppositePolygon) {
+				return polygon.position == utils.allowed.utils.opposite(oppositePolygon.position);
+			};
+
+			if ( branch.polygons.length < 2 ) {
+				return true;
+			}
+			var previous = branch.polygons[branch.polygons.length - 1];
+			var beforePrevious = branch.polygons[branch.polygons.length - 2];
+			if ( previous.direction == "H" && beforePrevious.direction != "H" ) {
+				// Case 1: 'Zigzag'
+				if ( isOpposite(polygon, beforePrevious) ) {
+					return false;
+				}
+				if ( polygon.direction != beforePrevious.direction && !isOpposite(polygon, beforePrevious) ) {
+					return false;
+				}
+			}
+			return true;
+		},
+		start: function (start) {
+			// Check if it's not used 
+			var usedStartPositions = polygons.branches.reduce(function (prev, curr) {
+				return prev.concat(curr.start);
+			}, []);
+			var stringifiedStartPositions = usedStartPositions.map(JSON.stringify);
+			var used = stringifiedStartPositions.indexOf(JSON.stringify(start)) >= 0;
+			// We want to use different attachment points as much as possible
+			// An attachment point is the combination of coords and position. Currently we have 6 attachment points. (see utils.foobar.start)
+			var getAttachmentPoint = function (position) {
+				return JSON.stringify(position.coords) + "/" + JSON.stringify(position.position);
+			};
+			var usedAttachmentPoints = usedStartPositions.map(getAttachmentPoint);
+			var usedAP = usedAttachmentPoints.indexOf(getAttachmentPoint(start)) >= 0;
+			if ( polygons.branches.length == 6 - 1 ) {
+				console.warn("Max amount of attachment points used. It's recommended to use less branches");
+				usedAP = false;
+			}
+			
+			return !used && !usedAP;
+		}
+	};
+
 
 	var polygons = {};
 
@@ -265,16 +345,17 @@ cubitec.generator = function (parameters) {
 		},
 		branch: {
 			amount: function (hashValue) {
-				return 4;
+				return parameters.branch.amount;
 			},
 			length: function (hashValue) {
-				var nums = [1, 2];
-				return nums[hashValue % 2];
+				var nums = parameters.branch.length;
+				return nums[hashValue % nums.length];
 			},
 			start: function (hashValue) {
 				var options = utils.foobar.start();
 				var index = utils.hash.randomRange(hashValue.toString(), 0, options.length);
-				return options[index];
+				// Keep on trying until it's allowed
+				return utils.allowed.start(options[index]) ? options[index] : utils.foobar.branch.start(utils.hash.value(hashValue + ""));
 			},
 			hash: function (branch) {
 				return hash.slice(branch.number * 4, branch.number * 4 + 4); // hash length 4 is used to generate branch's polygons (e.g. 'd4ab')
@@ -313,7 +394,22 @@ cubitec.generator = function (parameters) {
 						position = branch.start.position;
 						direction = branch.start.direction;
 					}
+					
+					var checkAllowed = function () {
+						var allowed = utils.allowed.polygon({ position: position, direction: direction }, branch);
+						console.log("checking allowed", allowed);
+						if ( !allowed ) {
+							value = utils.hash.value(value + "");
+							position = utils.block.position(value, previous);
+							direction = utils.block.direction(value, previous);
+							checkAllowed();
+						}
+					};
+					checkAllowed();
 
+					if ( parameters.fixedColors ) {
+						color = direction == "H" ? "B" : "G";
+					}
 					var polygon = utils.svg.polygon(color, position, direction);
 					coords = utils.grid.move(coords, polygon, previous);
 					polygon.coords = coords;
@@ -337,7 +433,6 @@ cubitec.generator = function (parameters) {
 	};
 
 	this.generate = function (draw) {
-		var hashValue = utils.hash.value(hash);
 		var branches = utils.foobar.branch.list(hash);
 		utils.foobar.branch.polygons(branches);
 		if ( draw ) {
@@ -349,10 +444,11 @@ cubitec.generator = function (parameters) {
 				});
 			};
 			polygons.branches.forEach(function (branch) {
-				var timeout = branch.number * 1000;
+				var timeout = branch.number * 2000;
 				setTimeout(draw, timeout, branch);
 			});
 		}
+		console.log("the branches are", polygons.branches);
 		return polygons.branches;
 	};
 
