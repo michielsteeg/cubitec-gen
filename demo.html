@@ -48,7 +48,7 @@
 
 		window.addEventListener("DOMContentLoaded", function () {
 
-			window.generator = new cubitec.generator({ seed: "Michiel Steegmans Cubitec" });
+			window.generator = new cubitec.generator({ seed: "test", branch: { amount: 5, length: [2, 3] } });
 			generator.drawBase();
 			generator.generate(true);
 		});
