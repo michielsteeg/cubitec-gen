@@ -337,7 +337,6 @@ cubitec.generator = function (parameters) {
 	};
 
 	this.generate = function (draw) {
-		var hashValue = utils.hash.value(hash);
 		var branches = utils.foobar.branch.list(hash);
 		utils.foobar.branch.polygons(branches);
 		if ( draw ) {
